@@ -1,4 +1,7 @@
 # msi-longread-panel-light
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18824372.svg)](https://doi.org/10.5281/zenodo.18824372)
+
 Lightweight targeted long-read transcriptomic profiling pipeline for Oxford Nanopore cDNA sequencing data (FFPE-optimized).
 
 ---
