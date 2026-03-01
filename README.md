@@ -289,6 +289,13 @@ Manuscript details will be added after acceptance.
 
 ---
 
+## DOI
+
+Archived at Zenodo:
+https://doi.org/10.5281/zenodo.18824372
+
+---
+
 ## License
 
 MIT License
