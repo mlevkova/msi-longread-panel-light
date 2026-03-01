@@ -1,67 +1,91 @@
 # msi-longread-panel-light
-
-Lightweight targeted long-read transcriptomic profiling pipeline for Oxford Nanopore cDNA sequencing data.
+Lightweight targeted long-read transcriptomic profiling pipeline for Oxford Nanopore cDNA sequencing data (FFPE-optimized).
 
 ---
 
 ## Overview
 
-This repository contains a reproducible bioinformatic workflow for targeted long-read transcriptomic analysis using Oxford Nanopore Technologies (ONT) sequencing data.
+This repository contains a reproducible bioinformatic workflow for targeted long-read transcriptomic analysis using Oxford Nanopore Technologies (ONT) sequencing data.  
+It is designed for gene-panel–restricted expression profiling from cDNA libraries obtained from **formalin-fixed paraffin-embedded (FFPE)** tumor tissue.
 
-The pipeline is optimized for gene-panel–restricted expression profiling from cDNA libraries derived from formalin-fixed paraffin-embedded (FFPE) tissue, but can be applied to fresh-frozen samples as well.
+The workflow supports:
 
-The workflow enables:
-
-- Targeted transcript-level quantification  
+- Targeted transcript quantification  
+- Mismatch repair (MMR) gene profiling  
 - Immune marker profiling  
-- Mismatch repair (MMR) gene expression analysis  
-- Lightweight normalization (RPM-based)  
-- Multi-sample aggregation  
-- Low computational footprint suitable for clinical environments  
+- Detection of fusion-like multi-gene alignments  
+- Lightweight normalization (RPM)  
+- Cohort-wide aggregation  
+- Optional variant calling for exploratory analysis  
 
-The approach relies on targeted alignment to a custom transcript reference panel followed by direct count aggregation and normalization.
-
----
-
-## Design Principles
-
-This pipeline was developed with the following goals:
-
-- Minimal computational requirements  
-- Transparent and interpretable quantification  
-- Compatibility with multiplexed barcode runs  
-- Adaptability to custom transcript panels  
-- Reproducibility in clinical research settings  
-
-The workflow avoids heavy transcriptome-wide quantification frameworks and instead focuses on alignment-based targeted counting suitable for hypothesis-driven panels.
+The pipeline is computationally lightweight and runs on standard laboratory workstations without HPC resources.
 
 ---
 
-## Typical Use Case
+## Features
 
-This pipeline is suitable for:
+### Targeted transcript quantification  
+Fast alignment against a curated transcript panel using minimap2.
 
-- Targeted transcriptome analysis  
-- Immune microenvironment profiling  
-- Expression analysis of selected gene panels  
-- FFPE-derived RNA sequencing  
-- Small to medium-sized cohort studies  
-- Clinical translational research projects  
+### Immune microenvironment scoring  
+Detection of:
+- T cell activation genes  
+- Cytotoxicity genes (NKG7, PRF1, GZMB, IFNG)  
+- Immune checkpoints (PDCD1, CD274, CTLA4, HAVCR2, LAG3, TIGIT)  
 
-Although originally designed for MSI-high colorectal cancer studies, it can be adapted to any transcript panel.
+### MMR profiling  
+Quantification of:
+- MLH1  
+- MSH2  
+- MSH6  
+- PMS2  
+- EPCAM  
+
+### Fusion-like read detection  
+Identification of reads aligning to *multiple* target genes, supporting:
+- Complex rearrangements  
+- Potential fusion transcripts  
+- Artifacts in highly rearranged MSI tumors  
+
+### Visualization module  
+Optional Python scripts generate:
+- Heatmaps  
+- Barplots  
+- Immune activation profiles  
+- Quality control metrics  
+
+### FFPE compatibility  
+Validated on multiple runs using FFPE colorectal carcinoma tissue.
+
+---
+
+## Typical Use Cases
+
+This pipeline is ideal for:
+
+- Targeted long-read transcriptomics  
+- Clinical translational research  
+- Immune microenvironment characterization  
+- FFPE sequencing projects  
+- MSI-high colorectal cancer studies  
+- Low-input or degraded RNA workflows  
 
 ---
 
 ## Workflow Summary
 
-1. Merge FASTQ files per barcode  
-2. (Optional) Perform read orientation using PyChopper  
-3. Align reads to custom transcript panel using `minimap2`  
-4. Extract gene assignments from PAF output  
-5. Generate raw gene counts  
-6. Normalize counts to RPM (reads per million)  
-7. Aggregate multi-sample results  
-8. Perform immune-focused downstream analysis and visualization  
+1. Merge FASTQ files for each barcode  
+2. (Optional) Process with PyChopper to orient cDNA reads  
+3. Align reads to custom transcript panel  
+4. Extract gene names from minimap2 PAF  
+5. Generate raw counts per gene  
+6. Normalize to RPM  
+7. Aggregate across multiple sequencing runs  
+8. Perform one or more optional analyses:
+   - Immune profiling  
+   - Fusion read detection  
+   - Variant calling  
+   - Heatmap visualization  
 
 ---
 
@@ -80,69 +104,61 @@ Required:
 
 Optional:
 
-- bcftools (for exploratory variant analysis)
-- pychopper (for ONT cDNA read orientation)
+- **pychopper** (for read orientation)
+- **bcftools** (for variant calling)
 
 ---
 
 ## Installation
 
-We strongly recommend using Conda for environment management.
-
-### 1. Create Environment
-
+### 1. Create a conda environment
 ```bash
 conda create -n ont-cdna python=3.12 -y
 conda activate ont-cdna
 ```
 
-### 2. Install Bioinformatics Tools
-
+### 2. Install core tools
 ```bash
 conda install -c bioconda minimap2=2.30 samtools seqtk bcftools pychopper -y
 ```
 
-### 3. Install Python Packages
-
+### 3. Install Python dependencies
 ```bash
-pip install pandas numpy matplotlib
-```
-
-### 4. Verify Installation
-
-```bash
-minimap2 --version
-samtools --version
-python --version
+pip install pandas numpy matplotlib seaborn
 ```
 
 ---
 
 ## Input Requirements
 
-- Basecalled ONT FASTQ files (single or multiplexed)
-- Custom transcript reference panel in FASTA format
-- Barcoded directory structure (e.g., barcode01, barcode02, ...)
+- Basecalled ONT FASTQ files  
+- Barcoded directory structure:  
+  `fastq_pass/run/barcode01/`  
+- Custom transcript reference (FASTA)  
+  - Example included:  
+    `expanded_panel.labeled.fa`
 
 ---
 
-## Instructions (Usage)
+# Main Pipeline (Expression Quantification)
 
-Edit the two paths below before running:
+Edit these two paths first:
 
 ```bash
-set -euo pipefail
-conda activate ont-cdna
-
 BASE="/mnt/d/MSI final"
 PANEL="/home/username/path/to/expanded_panel.labeled.fa"
+conda activate ont-cdna
+set -euo pipefail
 ```
 
-### 1. Process All Barcode Folders
+Genes collected:
 
 ```bash
 GENES='MLH1|MSH2|MSH6|PMS2|EPCAM|ACTB|GAPDH|RPLP0|RPS18|TP53|BRCA1|BRCA2|CD274|PDCD1|CTLA4'
+```
 
+### Run the pipeline
+```bash
 OUT="$BASE/combined_counts_rpm.tsv"
 echo -e "RunFolder\tSample\tGene\tCount\tRPM" > "$OUT"
 
@@ -156,13 +172,14 @@ for PASS in "$BASE"/fastq_pass*; do
     cd "$B"
 
     cat *.fastq *.fastq.gz 2>/dev/null > "${B}.merged.fastq" || true
-
     pychopper "${B}.merged.fastq" "${B}.pychop.fastq" || true
 
-    minimap2 -K 64k -t 1 -x map-ont --secondary=no "$PANEL" "${B}.pychop.fastq" > "${B}.expanded.paf"
+    minimap2 -K 64k -t 1 -x map-ont --secondary=no "$PANEL" \
+      "${B}.pychop.fastq" > "${B}.expanded.paf"
 
     awk -F'\t' '{split($6,a,"|"); g=a[1]; c[g]++}
-    END{for(g in c) print g"\t"c[g]}' "${B}.expanded.paf" | sort > "${B}_counts.tsv"
+    END{for(g in c) print g"\t"c[g]}' "${B}.expanded.paf" \
+      | sort > "${B}_counts.tsv"
 
     python3 - <<EOF
 import pandas as pd
@@ -172,52 +189,103 @@ df["RPM"]=(df["Count"]*1e6/tot) if tot>0 else 0
 df.to_csv("${B}_counts_rpm.tsv",sep="\t",index=False)
 EOF
 
-    awk -v run="$runname" -v samp="$B" -v pat="$GENES" 'BEGIN{FS=OFS="\t"}
-    NR>1 && $1 ~ "^(" pat ")$" {print run,samp,$1,$2,$3}' "${B}_counts_rpm.tsv" >> "$OUT"
+    awk -v run="$runname" -v samp="$B" -v pat="$GENES" \
+      'BEGIN{FS=OFS="\t"} NR>1 && $1 ~ "^(" pat ")$" {print run,samp,$1,$2,$3}' \
+      "${B}_counts_rpm.tsv" >> "$OUT"
 
     cd ..
   done
 done
+```
 
-echo "Pipeline completed successfully."
+---
+
+# Optional Analysis Modules
+
+## 1. Immune Profiling Module
+Extract:
+
+- T cell markers (CD3D, CD3E, CD8A, TRAC)  
+- Cytotoxic markers (NKG7, PRF1, GZMB, IFNG)  
+- Immune checkpoints (PDCD1, CD274, CTLA4, HAVCR2)
+
+```bash
+awk -F'\t' '$3~/^(CD3D|CD3E|CD8A|TRAC|NKG7|PRF1|GZMB|IFNG|PDCD1|CD274|CTLA4|HAVCR2)$/' \
+combined_counts_rpm.tsv | column -t
+```
+
+---
+
+## 2. Fusion-like Read Detection
+```bash
+awk -F'\t' '{rid=$1; split($6,a,"|"); gene=a[1]; print rid"\t"gene}' \
+  *.expanded.paf | sort -u > read_to_gene.tsv
+
+cut -f1,2 read_to_gene.tsv | sort -u \
+ | awk '{k[$1][$2]=1} END{for(r in k){c=0; g=""; for (x in k[r]){c++; g=g","x} if (c>1) print r"\t"c"\t"substr(g,2)}}' \
+ > fusion_candidates.tsv
+```
+
+---
+
+## 3. Variant Calling (Exploratory)
+```bash
+minimap2 -ax splice -t 2 GRCh38.fa sample.fastq | samtools sort -o aln.bam
+samtools index aln.bam
+
+bcftools mpileup -f GRCh38.fa aln.bam | bcftools call -mv -Oz -o variants.vcf.gz
+```
+
+---
+
+## 4. Heatmap Visualization (Python)
+
+Example:
+
+```python
+import pandas as pd, seaborn as sns, matplotlib.pyplot as plt
+
+df = pd.read_csv("combined_counts_rpm.tsv", sep="\t")
+pivot = df.pivot_table(index="Gene", columns="Sample", values="RPM")
+
+sns.clustermap(pivot, cmap="viridis", figsize=(8,12))
+plt.savefig("heatmap.png", dpi=300)
 ```
 
 ---
 
 ## Output Files
 
-For each barcode:
+Per barcode:
+- `*.expanded.paf`
+- `*_counts.tsv`
+- `*_counts_rpm.tsv`
 
-- `*_expanded.paf` – alignment file  
-- `*_counts.tsv` – raw gene counts  
-- `*_counts_rpm.tsv` – normalized expression table  
-
-Global output:
-
-- `combined_counts_rpm.tsv` – aggregated multi-sample expression matrix  
+Global:
+- `combined_counts_rpm.tsv`
+- Optional: heatmaps, fusion tables, variant VCF
 
 ---
 
 ## Reproducibility
 
-All analyses were performed using:
-
 - Python 3.12  
-- minimap2 v2.30  
-- Single-threaded alignment mode  
-- RPM-based normalization  
+- minimap2 2.30  
+- Single-threaded execution  
+- RPM normalization  
 
 ---
 
 ## Version
 
-Current stable release: v1.0.0
+Stable release: **v1.0.0**
 
 ---
 
 ## Citation
 
-If you use this pipeline, please cite the associated publication (details to be updated upon acceptance). Please contact Mariya Levkova.
+Please cite this repository when publishing results.  
+Manuscript details will be added after acceptance.
 
 ---
 
