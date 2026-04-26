@@ -109,8 +109,24 @@ Optional:
 
 - **pychopper** (for read orientation)
 - **bcftools** (for variant calling)
-
 ---
+## Quick Start
+
+Run the pipeline using the provided script:
+
+```bash
+bash scripts/run_pipeline.sh input.fastq output_folder reference.fasta
+```
+
+## Example Data
+
+A small example FASTQ file is provided in the `example_data/` directory to demonstrate pipeline execution.
+
+Example run:
+
+```bash
+bash scripts/run_pipeline.sh example_data/sample.fastq test_output expanded_panel.labeled.fa
+```
 
 ## Installation
 
@@ -129,8 +145,6 @@ conda install -c bioconda minimap2=2.30 samtools seqtk bcftools pychopper -y
 ```bash
 pip install pandas numpy matplotlib seaborn
 ```
-
----
 
 ## Input Requirements
 
